@@ -12,7 +12,7 @@ Currently, the article is in the process of publication.
 
   After installing the above packages, users can test the functionality of CONFIGURE by directly running the script. Outputs will be saved in **C:\configure**
 
-  # Important note
+  # Note
   Asid Ur Rehman developed this optimisation framework as part of his PhD study at Newcastle University. 
   
   # Licence  

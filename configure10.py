@@ -333,7 +333,7 @@ def remove_same_objectives_population(f_comb_population, f_dup_idx_obj):
 
 # setting folders and paths
 # user need to set-up workig directory, below is just an example.
-run_path = 'C:/optimisation'
+run_path = 'C:\configure'
 
 # to check and create working directory if does not exist
 if not os.path.exists(run_path):

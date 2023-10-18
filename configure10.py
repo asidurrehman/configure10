@@ -6,7 +6,7 @@
 ╚═╝╚═╝╝╚╝╚  ╩╚═╝╚═╝╩╚═╚═╝
 Cost OptimisatioN Framework for Implementing blue-Green infrastructURE
 Version 1.0
-Publicaton: 
+Publication: 
 DOI:
 
 -------------------------------------------------------------------------------
@@ -48,7 +48,7 @@ warnings.filterwarnings("ignore")
 
 '''----------------------------------------------------------------------------
 
-    This section contains definations of all functions used in CONFIGURE
+    This section contains definitions of all functions used in CONFIGURE
 
 ----------------------------------------------------------------------------'''
 
@@ -61,7 +61,7 @@ def initial_pop(f_pop_size,f_chrom_len):
 
 
 
-# to calculate cost of each chromosome
+# to calculate the cost of each chromosome
 def cost_objective(f_chrom_len, f_pop_size, f_population, f_bgi_cost):
     f_chrom_cost = np.zeros(f_pop_size)[:,np.newaxis]
     for pop in range(len(f_population)): 
@@ -217,7 +217,7 @@ def fitter_parent(f_sorted_fitness,f_pop_size):
 
         
 
-# random single point corss-over
+# random single-point cross-over
 def crossover_random_single_point_swap(f_pop, p1, p2, f_min_idx, f_max_idx):
     c_index = np.random.randint(f_min_idx,f_max_idx)
     f_child_1 = np.concatenate((f_pop[p1][0:c_index], 
@@ -297,7 +297,7 @@ def remove_duplicate_different_population(population1, population2):
     return pop_1
 
 
-# to separate old and new chromosomes in newly generated population
+# to separate old and new chromosomes in the newly generated population
 def separate_new_old(f_new_population, f_old_population):
     f_new_chroms = copy.deepcopy(f_new_population)
     f_old_chroms = copy.deepcopy(f_new_population)
@@ -314,7 +314,7 @@ def separate_new_old(f_new_population, f_old_population):
 
                 
 
-# to remove chromosomes which have same objective functions
+# to remove chromosomes which have the same objective functions
 def remove_same_objectives_population(f_comb_population, f_dup_idx_obj):
     comb_pop = copy.deepcopy(f_comb_population)
     a = copy.deepcopy(f_dup_idx_obj)
@@ -332,14 +332,14 @@ def remove_same_objectives_population(f_comb_population, f_dup_idx_obj):
 
 
 # setting folders and paths
-# user need to set-up workig directory, below is just an example.
+# users need to set up a working directory, below is just an example.
 run_path = 'C:\configure'
 
-# to check and create working directory if does not exist
+# to check and create a working directory if does not exist
 if not os.path.exists(run_path):
     os.makedirs(run_path)
 
-# change to  working directory
+# change to  the working directory
 os.chdir(run_path)
 
 # show current working directory
@@ -353,13 +353,13 @@ print("Current working directory: {0}".format(os.getcwd()))
 ╚═╝╩ ╚╝ ╚═╝   ╩ ╚═╝╚═╝╩╚═  ╚═╝╚═╝╩  ╚═╝╚═╝╚═╝ ╩   ╩ ╩╚═╝╩╚═╚═╝
 '''
 
-# bgi_cost array takes cost for each BGI feature, user can get it from a file.
+# bgi_cost array takes the cost for each BGI feature, the user can get it from a file.
 # bgi_cost = size of BGI feature x per unit size cost of BGI feature
 
 # for demonstration, let's consider 100 BGI features
 bgi_count = 100
 
-# to assign hypothetical cost to BGI features
+# to assign a hypothetical cost to BGI features
 bgi_cost = np.random.uniform(0.1,3.0,(bgi_count,1))
 
 '''#########################################################################'''
@@ -371,13 +371,13 @@ chrom_len = copy.deepcopy(bgi_count)
 # population size (number of chromosomes)
 pop_size = 100
 
-# to generate initial population (randomly)
+# to generate the initial population (randomly)
 i_population = initial_pop(pop_size,chrom_len)
 
-# to check if population has duplicate chromosomes
+# to check if the population has duplicate chromosomes
 [i_population_unique,_] = remove_duplicate_same_population(i_population)
 
-# to remove duplicates and create unique set of chromosomes
+# to remove duplicates and create a unique set of chromosomes
 while len(i_population_unique) < pop_size:
     
     del i_population, i_population_unique
@@ -389,7 +389,7 @@ while len(i_population_unique) < pop_size:
     
 start_timestamp = pd.Timestamp.now()
 
-# to get total cost for each chromosome in initial population
+# to get the total cost for each chromosome in the initial population
 i_chrom_cost = cost_objective(chrom_len, pop_size, 
                               i_population_unique, bgi_cost)
 
@@ -415,7 +415,7 @@ i_chrom_risk = np.random.randint(100, size = (pop_size, 1))
 # to plot cost vs risk
 
 # plot title
-plot_title = 'Initial popluation (random)'
+plot_title = 'Initial population (random)'
 
 # plot legend
 plot_legend_series = 'Evolving solution'
@@ -503,12 +503,12 @@ for generation in range(1,4):
         parent_1 = fitter_parent(sorted_fitness, pop_size)
         parent_2 = fitter_parent(sorted_fitness, pop_size)
         
-        # to enusre both parents are not same
+        # to ensure both parents are not the same
         while parent_1 == parent_2:
             parent_2 = fitter_parent(sorted_fitness, pop_size)
         
         # to create offspring using cross-over
-        # min_idx and max_idx define range for random selection of position
+        # min_idx and max_idx define a range for random selection of position
         min_idx = 1 
         max_idx = chrom_len-1
         
@@ -519,10 +519,10 @@ for generation in range(1,4):
         
         # to apply mutation for diversity
         
-        # p is probability for mutation
+        # p is the probability of mutation
         p = 0.4
         
-        # m_idx_range define range for random single bit flip position
+        # m_idx_range define a range for random single-bit flip position
         m_idx_range = chrom_len
         
         # muted offspring
@@ -534,7 +534,7 @@ for generation in range(1,4):
         offspring_1 = offspring_1_c.reshape(1,len(offspring_1_c))
         offspring_2 = offspring_2_c.reshape(1,len(offspring_2_c))
         
-        ## to checck if newly created offspring already exists in population
+        ## to check if newly created offspring already exists in the population
         if len(offspring) > 0:
             
             a = []
@@ -588,7 +588,7 @@ for generation in range(1,4):
     # for offspring population
     print('\n''Gen.{0}: Simulating offspring population'.format(generation))
       
-    # to calculates total cost of each offspring chromosome
+    # to calculate the total cost of each offspring chromosome
     o_chrom_cost = cost_objective(chrom_len, len(offspring), 
                                   offspring, bgi_cost)
 
@@ -610,7 +610,7 @@ for generation in range(1,4):
 
     '''####################################################################'''
     
-    # to save unique chromosomes created in running generation
+    # to save unique chromosomes created in the running generation
     simulated_population = np.concatenate((simulated_population, 
                                            offspring), axis=0)
      
@@ -621,11 +621,11 @@ for generation in range(1,4):
     comb_chroms_objs = np.concatenate(
                             (p_chroms_objs,o_chroms_objs), axis=0)
     
-    # to checking duplicates in combined objectives
+    # to check duplicates in combined objectives
     [comb_chroms_objs_uniq, dup_idx_obj] = remove_duplicate_list(
                                             comb_chroms_objs)
         
-    ## to joine parent and offspring chromosomes
+    ## to join parent and offspring chromosomes
     comb_population = np.concatenate((p_population, offspring), axis=0)  
     
     ## to remove duplicate objective(s)
@@ -634,7 +634,7 @@ for generation in range(1,4):
     
     comb_pop_size = len(comb_population_uniq_objs)
     
-    # to rank chromosomes from combined population
+    # to rank chromosomes from the combined population
     comb_front = non_dominated_sorting(comb_pop_size, 
                                    comb_chroms_objs_uniq)
     
@@ -648,11 +648,11 @@ for generation in range(1,4):
     ## to select the fittest objectives       
     select_fittest = copy.deepcopy(comb_population_fitness_sort[0:pop_size])
     
-    # to joine cost objectives of parents and offspring population
+    # to join cost objectives of parents and offspring population
     comb_chrom_cost = np.concatenate((p_chrom_cost, o_chrom_cost), axis=0)
     comb_chrom_cost_uniq_obj = np.delete(comb_chrom_cost,dup_idx_obj, 0)
     
-    # to joine risk objectives of parents and offspring population
+    # to join risk objectives of parents and offspring population
     comb_chrom_risk = np.concatenate((p_chrom_risk, o_chrom_risk), axis=0)
     comb_chrom_risk_uniq_obj = np.delete(comb_chrom_risk ,
                                             dup_idx_obj, 0)
@@ -678,7 +678,7 @@ for generation in range(1,4):
                      plot_y_limit, plot_x_axis_label, plot_y_axis_label, 
                      save_file )
     
-    # to make a copy of previous population
+    # to make a copy of the previous population
     old_population = copy.deepcopy(p_population)
 
     # to separate old and newly created chromosomes
@@ -696,7 +696,7 @@ for generation in range(1,4):
     p_chrom_cost = copy.deepcopy(f_chrom_cost)
     p_chrom_risk = copy.deepcopy(f_chrom_risk)
     
-    ## all data until current generation
+    ## all data until the current generation
     onetime_counter[:,0] = generation
     g_counter = np.concatenate((g_counter, onetime_counter), axis=0)
     
@@ -774,13 +774,13 @@ opt_output = np.concatenate((opt_g_counter, opt_population,
                                    opt_chrom_risk),
                                    axis=1)
 
-# to create dataframe from an array
+# to create a data frame from an array
 opt_df = pd.DataFrame(opt_output, columns = exp_labels)
 
 # to export optimal data as a CSV file
 opt_df.to_csv('optimised_data.csv', index_label='SN')
 
-# to find contribution of each BGI feature to optimal solutions
+# to find the contribution of each BGI feature to optimal solutions
 
 # to BGI contribution in Pareto optimal front
 bgi_contribution = np.zeros((chrom_len, 3), dtype=int)
@@ -793,12 +793,12 @@ for i in range(chrom_len):
     # BGI contribution
     bgi_contribution[i,1] = sum(opt_population[:,i]) # zone contribution
     
-    # BGI contribution in precentage
+    # BGI contribution in percentage
     bgi_contribution[i,2] = (100*bgi_contribution[i,1])/(len(opt_population))
 
 del i
     
-# to create dataframe from an array
+# to create a data frame from an array
 cont_df = pd.DataFrame(bgi_contribution)
 
 # to assign names to columns

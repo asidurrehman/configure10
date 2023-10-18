@@ -5,7 +5,7 @@ Users can follow the instructions given inside the code to integrate their model
 **_CONFIGURE: An Optimisation Framework for the Cost-Effective Spatial Configuration of Blue-Green Infrastructure_**. 
 Currently, the article is in the process of publication. 
 
-  The following Python packages are required to run CONFIGURE
+  The following Python packages are required to run CONFIGURE:
   - Numpy 1.26.0  
   - Pandas 2.1.1  
   - Matplotlib 3.8.0

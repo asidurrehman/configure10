@@ -12,8 +12,8 @@ Currently, the article is in the process of publication.
 
   After installing the above packages, users can test the functionality of CONFIGURE by directly running the script. Outputs will be saved in **C:\configure**
 
-  # Note
+  ## Note
   Asid Ur Rehman developed this optimisation framework as part of his PhD study at Newcastle University. 
   
-  # Licence  
+  ## Licence  
 Asid Ur Rehman (C) 2023. Licenced under the terms of the Apache License 2.0.

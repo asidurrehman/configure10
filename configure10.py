@@ -17,7 +17,7 @@ Author: Asid Ur Rehman (Github: asidurrehman)
 
 -------------------------------------------------------------------------------
 
-Copyright 2023, Asid Ur Rehman
+Copyright 2023 Asid Ur Rehman
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

@@ -601,7 +601,7 @@ for generation in range(1,4):
     '''
 
     # here, users need to plugin their hydrodynamic model to simulate each of 
-    # the chromosomes (initial population). Model should provide 
+    # the chromosomes (offspring population). Model should provide 
     # a risk vector (o_chrom_risk), having length equal to o_chrom_cost
 
     # for demonstration, hypothetical risk is generated for 

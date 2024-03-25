@@ -1,6 +1,9 @@
 # README  
 This repository contains Python code for the Cost OptimisatioN Framework for Implementing blue-Green infrastructURE (CONFIGURE) version 1.0. 
 CONFIGURE integrates a multiobjective optimisation algorithm (NSGA-II) with a hydrodynamic flood model to optimise the BGI intervention cost for the given decision variables i.e., the locations of BGI features. 
+CONFIGURE can be run either in **Standard Mode** (configure10_standard.py) or **Parallelised Mode** (configure10_parallelised.py). The parallelised mode uses the multiprocessing capabilities of Python to run multiple processes (hydrodynamic simulations) simultaneously, thereby speeding up the optimisation process. Please refer to the main article to determine when to use the standard or parallelised mode.
+
+
 Users can follow the instructions given inside the code to integrate their models and related inputs. Currently, the main article detailing the framework is in the process of peer review. 
 
   The following Python packages are required to run CONFIGURE:

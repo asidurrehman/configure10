@@ -6,8 +6,8 @@
 ╚═╝╚═╝╝╚╝╚  ╩╚═╝╚═╝╩╚═╚═╝
 Cost OptimisatioN Framework for Implementing blue-Green infrastructURE
 Version 1.0 (standard)
-Publication: 
-DOI:
+Publication: Multi-objective optimisation framework for Blue-Green Infrastructure placement using detailed flood model
+DOI: https://doi.org/10.1016/j.jhydrol.2024.131571
 
 -------------------------------------------------------------------------------
 

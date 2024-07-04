@@ -1,5 +1,5 @@
 # README  
-This repository contains Python code for the Cost OptimisatioN Framework for Implementing blue-Green infrastructURE (CONFIGURE) version 1.0. The associate article titled **Multi-objective optimisation framework for Blue-Green Infrastructure placement using detailed flood model** is available at: https://doi.org/10.1016/j.jhydrol.2024.131571
+This repository contains Python code for the Cost OptimisatioN Framework for Implementing blue-Green infrastructURE (CONFIGURE) version 1.0. The associated article titled **Multi-objective optimisation framework for Blue-Green Infrastructure placement using detailed flood model** is available at: https://doi.org/10.1016/j.jhydrol.2024.131571
 
 
 CONFIGURE integrates a multiobjective optimisation algorithm (NSGA-II) with a hydrodynamic flood model to optimise the BGI intervention cost for the given decision variables i.e., the locations of BGI features. 

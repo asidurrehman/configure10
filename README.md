@@ -18,7 +18,7 @@ Users can follow the instructions given inside the code to integrate their model
   ## Note
   Asid Ur Rehman developed this optimisation framework as part of his PhD study at Newcastle University. If you use this code, please acknowledge its source with the following citation:
 
-  *Rehman, A. U., Glenis, V., Lewis, E., & Kilsby, C. (2024). Multi-objective optimisation framework for Blue-Green Infrastructure placement using detailed flood model. Journal of Hydrology, 131571.*
+  *Ur Rehman, A., Glenis, V., Lewis, E., & Kilsby, C. (2024). Multi-objective optimisation framework for Blue-Green Infrastructure placement using detailed flood model. Journal of Hydrology, 131571.*
   
   ## Licence  
 Asid Ur Rehman (C) 2023. Licenced under the terms of the Apache License 2.0.

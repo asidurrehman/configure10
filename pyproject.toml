@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "configure10"
+version = "1.0.0"
+description = "CONFIGURE v1.0: multi-objective (NSGA-II) optimisation of Blue-Green Infrastructure placement coupled with a flood model"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Asid Ur Rehman" }]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "matplotlib>=3.8",
+    "pyyaml>=6.0",
+]
+keywords = [
+    "NSGA-II",
+    "multi-objective optimisation",
+    "blue-green infrastructure",
+    "flood risk",
+    "genetic algorithm",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Hydrology",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[project.urls]
+Repository = "https://github.com/asidurrehman/Configure10"
+Article = "https://doi.org/10.1016/j.jhydrol.2024.131571"
+
+[tool.setuptools]
+# The importable helper module. The two entry scripts are run directly
+# (python configure10_standard.py), not imported.
+py-modules = ["configure10_functions"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+# Only syntax errors and undefined names; the original code style is kept.
+select = ["E9", "F63", "F7", "F82"]

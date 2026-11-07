@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the article below."
+type: software
+title: "CONFIGURE: Cost-benefit OptimisatioN Framework for Implementing blue-Green infrastructURE (version 1.0)"
+version: 1.0.0
+license: Apache-2.0
+repository-code: "https://github.com/asidurrehman/Configure10"
+authors:
+  - given-names: Asid
+    family-names: Ur Rehman
+abstract: >-
+  CONFIGURE integrates a multi-objective optimisation algorithm (NSGA-II)
+  with a hydrodynamic flood model to optimise the costs and benefits of
+  Blue-Green Infrastructure (BGI) interventions, using the locations of BGI
+  features as decision variables. It can run in a standard mode or a
+  parallelised mode that evaluates candidate solutions simultaneously.
+keywords:
+  - NSGA-II
+  - multi-objective optimisation
+  - blue-green infrastructure
+  - urban flooding
+  - flood risk management
+preferred-citation:
+  type: article
+  authors:
+    - given-names: Asid
+      family-names: Ur Rehman
+    - given-names: Vassilis
+      family-names: Glenis
+    - given-names: Elizabeth
+      family-names: Lewis
+    - given-names: Chris
+      family-names: Kilsby
+  title: "Multi-objective optimisation framework for Blue-Green Infrastructure placement using detailed flood model"
+  journal: "Journal of Hydrology"
+  volume: 638
+  start: 131571
+  year: 2024
+  doi: "10.1016/j.jhydrol.2024.131571"

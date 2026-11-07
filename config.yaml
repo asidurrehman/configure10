@@ -1,0 +1,21 @@
+# CONFIGURE v1.0 settings
+# Read by configure10_standard.py and configure10_parallelised.py.
+# To use another file:  python configure10_standard.py --config my_config.yaml
+
+# Working folder where all outputs (CSV files and plots) are written. It is
+# created if it does not exist. A relative path is resolved from the folder
+# containing this file; an absolute path (e.g. C:/configure) is used as is.
+run_path: configure_output
+
+# Number of candidate solutions (chromosomes) in each generation.
+pop_size: 100
+
+# Number of generations to evolve (must be at least 1).
+generations: 3
+
+# Probability (0 to 1) that each child gets a random single bit-flip mutation.
+mutation_probability: 0.4
+
+# Parallelised mode only: number of processes that evaluate the population at
+# the same time (e.g. the number of physical CPU cores).
+processes_count: 4

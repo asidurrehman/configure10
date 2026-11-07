@@ -83,6 +83,34 @@ warnings.filterwarnings("ignore")
 
 # to calculate the cost of each chromosome
 def cost_risk_objectives(f_chrom_len, f_pop_size, f_population, f_bgi_cost):
+    """Calculate the cost and risk objectives of every chromosome.
+
+    THIS IS WHERE YOU CONNECT YOUR OWN FLOOD MODEL. Cost is the sum of the
+    costs of the BGI features switched on (gene = 1) in each chromosome. Risk
+    must come from a flood simulation of that chromosome: in the marked
+    section below, write the BGI layout of the chromosome into your model's
+    input files, run the model and set f_chrom_risk[pop] to the resulting
+    risk value. For demonstration, a random risk value between 0 and 99 is
+    used instead.
+
+    Parameters
+    ----------
+    f_chrom_len : int
+        Number of genes per chromosome (number of BGI features).
+    f_pop_size : int
+        Number of chromosomes in f_population.
+    f_population : numpy.ndarray
+        Population to evaluate, shape (f_pop_size, f_chrom_len).
+    f_bgi_cost : numpy.ndarray
+        Cost of each BGI feature, shape (f_chrom_len, 1).
+
+    Returns
+    -------
+    f_chrom_cost : numpy.ndarray
+        Cost of each chromosome, shape (f_pop_size, 1).
+    f_chrom_risk : numpy.ndarray
+        Risk of each chromosome, shape (f_pop_size, 1).
+    """
     
     # create empty numpy arrays to save cost and levels of risk for each
     # of the chromosomes or candidate solutions

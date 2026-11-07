@@ -57,6 +57,25 @@ import matplotlib.pyplot as plt
 
 # to create an initial random population
 def initial_pop(f_pop_size,f_chrom_len):
+    """Create a random initial population of binary chromosomes.
+
+    Each gene is 0 (BGI feature absent) or 1 (BGI feature present). The
+    last two chromosomes are overwritten so that the population always
+    contains the two extreme solutions: no BGI at all (all zeros) and every
+    BGI feature (all ones).
+
+    Parameters
+    ----------
+    f_pop_size : int
+        Number of chromosomes (candidate solutions) in the population.
+    f_chrom_len : int
+        Number of genes per chromosome, i.e. the number of BGI features.
+
+    Returns
+    -------
+    numpy.ndarray
+        Integer array of shape (f_pop_size, f_chrom_len) containing 0s and 1s.
+    """
     initial_p = np.random.randint(2, size = (f_pop_size, f_chrom_len))
     initial_p[len(initial_p)-2] = 0
     initial_p[len(initial_p)-1] = 1
@@ -65,6 +84,23 @@ def initial_pop(f_pop_size,f_chrom_len):
 
 # to remove duplicates from same population
 def remove_duplicate_same_population(same_population):
+    """Remove repeated chromosomes from a single population.
+
+    The first occurrence of each chromosome is kept and later copies are
+    removed.
+
+    Parameters
+    ----------
+    same_population : numpy.ndarray
+        2-D array with one chromosome per row.
+
+    Returns
+    -------
+    pop_uniq : numpy.ndarray
+        The population without duplicate rows.
+    removed_idx : list of int
+        Row indices (in the input) of the duplicates that were removed.
+    """
     pop_uniq = copy.deepcopy(same_population)
     a = {}
     for i in range(0, len(pop_uniq)):
@@ -78,6 +114,23 @@ def remove_duplicate_same_population(same_population):
 
 # to create unique population of chromosomes
 def unique_pop(f_pop_size,f_chrom_len):
+    """Create a random initial population in which every chromosome is unique.
+
+    A new random population is drawn with initial_pop() until it contains no
+    duplicate chromosomes.
+
+    Parameters
+    ----------
+    f_pop_size : int
+        Number of chromosomes in the population.
+    f_chrom_len : int
+        Number of genes per chromosome (number of BGI features).
+
+    Returns
+    -------
+    numpy.ndarray
+        Integer array of shape (f_pop_size, f_chrom_len) with unique rows.
+    """
     # to generate the initial population (randomly)
     i_pop = initial_pop(f_pop_size, f_chrom_len)
     
@@ -100,6 +153,34 @@ def scatter_plot(f_plot_title, f_cost, f_risk,
                  f_plot_legend_series,
                     f_plot_x_limit, f_plot_y_limit, f_plot_x_axis_label,
                     f_plot_y_axis_label, f_save_file):
+    """Plot cost against risk for a set of solutions and save the figure.
+
+    Parameters
+    ----------
+    f_plot_title : str
+        Title of the plot.
+    f_cost : array_like
+        Cost of each solution (x axis).
+    f_risk : array_like
+        Risk of each solution (y axis).
+    f_plot_legend_series : str
+        Legend label for the plotted points.
+    f_plot_x_limit : sequence of two numbers
+        Lower and upper limits of the x axis.
+    f_plot_y_limit : sequence of two numbers
+        Lower and upper limits of the y axis.
+    f_plot_x_axis_label : str
+        Label of the x axis.
+    f_plot_y_axis_label : str
+        Label of the y axis.
+    f_save_file : str
+        File name for the figure, relative to the current working directory.
+        Without an extension, matplotlib saves it as a PNG.
+
+    Returns
+    -------
+    None
+    """
     ax = plt.subplot()
     plt.xlim(f_plot_x_limit[0], f_plot_x_limit[1])
     plt.ylim(f_plot_y_limit[0], f_plot_y_limit[1])
@@ -118,6 +199,26 @@ def scatter_plot(f_plot_title, f_cost, f_risk,
 
 # Non-dominated sorting function
 def non_dominated_sorting(population_size,f_chroms_objs):
+    """Rank solutions into Pareto fronts (fast non-dominated sorting, NSGA-II).
+
+    Both objectives (cost and risk) are minimised. A solution p dominates q
+    when it is no worse in both objectives and strictly better in at least
+    one.
+
+    Parameters
+    ----------
+    population_size : int
+        Number of solutions to rank (rows of f_chroms_objs).
+    f_chroms_objs : numpy.ndarray
+        Array of shape (population_size, 2) with the two objective values
+        (cost, risk) of each solution.
+
+    Returns
+    -------
+    dict
+        Maps the front number (0 = non-dominated / Pareto-optimal front,
+        1 = next front, ...) to a list of solution indices in that front.
+    """
     s,n={},{}
     front,rank={},{}
     front[0]=[]     
@@ -162,6 +263,29 @@ def non_dominated_sorting(population_size,f_chroms_objs):
 
 # to calculate crowding distance
 def calculate_crowding_distance(f_front,f_chroms_objs):
+    """Calculate the NSGA-II crowding distance of every solution in each front.
+
+    Within a front, the distance for each objective is the gap between a
+    solution's two neighbours divided by the range of that objective; the
+    two objective distances are added. Boundary solutions receive large
+    fixed values (666666666 for the cost objective and 333333333 for the
+    risk objective) so that they are always preferred, which keeps the
+    extremes of the front.
+
+    Parameters
+    ----------
+    f_front : dict
+        Fronts as returned by non_dominated_sorting().
+    f_chroms_objs : numpy.ndarray
+        Array of shape (n, 2) with the (cost, risk) objectives of each
+        solution.
+
+    Returns
+    -------
+    dict
+        Maps each front number to a dict of {solution index: crowding
+        distance}.
+    """
     distance = {}
     for i in range(len(f_front)):
         distance[i] = dict.fromkeys(f_front[i], 0)
@@ -207,6 +331,21 @@ def calculate_crowding_distance(f_front,f_chroms_objs):
 
 # to sort population based on their front rank and crowding distance
 def fitness_sort(f_distance, f_pop_size):
+    """Order solutions by front rank, then by descending crowding distance.
+
+    Parameters
+    ----------
+    f_distance : dict
+        Crowding distances per front, as returned by
+        calculate_crowding_distance().
+    f_pop_size : int
+        Total number of solutions contained in f_distance.
+
+    Returns
+    -------
+    list of int
+        Solution indices from fittest to least fit.
+    """
     f_distance_sort = {}
     for i in range(len(f_distance)):
         f_distance_sort[i] = {k: v for k, v in sorted(f_distance[i].items(), 
@@ -224,6 +363,25 @@ def fitness_sort(f_distance, f_pop_size):
 
 # to select parents using binary tournament
 def fitter_parent(f_sorted_fitness,f_pop_size):
+    """Select one parent by binary tournament.
+
+    Two different solutions are drawn at random and the one that appears
+    earlier in the fitness ranking (better front, then larger crowding
+    distance) wins.
+
+    Parameters
+    ----------
+    f_sorted_fitness : numpy.ndarray
+        Solution indices ordered from fittest to least fit, as produced by
+        fitness_sort().
+    f_pop_size : int
+        Population size; candidates are drawn from range(f_pop_size).
+
+    Returns
+    -------
+    int
+        Index of the selected parent.
+    """
     pairs_rand = np.random.randint(f_pop_size, size = (1, 2))    
     while pairs_rand[0,0] == pairs_rand[0,1]:
         pairs_rand = np.random.randint(f_pop_size, size = (1, 2))  
@@ -236,6 +394,28 @@ def fitter_parent(f_sorted_fitness,f_pop_size):
 
 # random single-point cross-over
 def crossover_random_single_point_swap(f_pop, p1, p2, f_min_idx, f_max_idx):
+    """Create two children by single-point crossover of two parents.
+
+    Child 1 takes the genes of parent 1 before a random cut point and the
+    genes of parent 2 after it. Child 2 does the opposite (parent 2 then
+    parent 1), using its own independently drawn cut point.
+
+    Parameters
+    ----------
+    f_pop : numpy.ndarray
+        Population, one chromosome per row.
+    p1, p2 : int
+        Row indices of the two parents in f_pop.
+    f_min_idx : int
+        Smallest allowed cut point (inclusive).
+    f_max_idx : int
+        Largest allowed cut point (exclusive).
+
+    Returns
+    -------
+    f_child_1, f_child_2 : numpy.ndarray
+        The two child chromosomes (1-D arrays).
+    """
     c_index = np.random.randint(f_min_idx,f_max_idx)
     f_child_1 = np.concatenate((f_pop[p1][0:c_index], 
                         f_pop[p2][c_index:len(f_pop[p1])]), axis=0)
@@ -248,6 +428,30 @@ def crossover_random_single_point_swap(f_pop, p1, p2, f_min_idx, f_max_idx):
 # random single bit flip mutation
 def mutation_random_bitflip(f_child_1, f_child_2, f_chrom_len, prob,
                             f_m_idx_range):
+    """Apply random single bit-flip mutation to two children.
+
+    Each child, with probability prob, has one randomly chosen gene flipped
+    (0 to 1 or 1 to 0). If the two children are identical afterwards, genes
+    of the second child are flipped at random until they differ. The input
+    arrays are modified in place.
+
+    Parameters
+    ----------
+    f_child_1, f_child_2 : numpy.ndarray
+        Child chromosomes (1-D arrays).
+    f_chrom_len : int
+        Chromosome length (not used inside the function; kept for
+        compatibility).
+    prob : float
+        Mutation probability for each child (0 to 1).
+    f_m_idx_range : int
+        Genes are chosen from range(f_m_idx_range).
+
+    Returns
+    -------
+    f_child_1, f_child_2 : numpy.ndarray
+        The (possibly) mutated children.
+    """
     if prob > np.random.rand():
         m_index = np.random.randint(f_m_idx_range)
         if f_child_1[m_index] == 0:
@@ -271,6 +475,23 @@ def mutation_random_bitflip(f_child_1, f_child_2, f_chrom_len, prob,
 
 # to remove duplicates from a list
 def remove_duplicate_list(record_list):
+    """Remove repeated rows from an array, e.g. duplicate objective pairs.
+
+    The first occurrence of each row is kept and later copies are removed.
+    The input must contain at least two rows.
+
+    Parameters
+    ----------
+    record_list : numpy.ndarray
+        2-D array, one record per row.
+
+    Returns
+    -------
+    m_pool : numpy.ndarray
+        The array without duplicate rows.
+    removed_idx : list of int
+        Row indices (in the input) of the duplicates that were removed.
+    """
     # print('\n' 'Checking duplicates in the list:')
     m_pool = copy.deepcopy(record_list)
     idx = {}
@@ -286,6 +507,20 @@ def remove_duplicate_list(record_list):
 
 # to remove duplicates from different sets of populations
 def remove_duplicate_different_population(population1, population2):
+    """Remove from one population any chromosomes found in another.
+
+    Parameters
+    ----------
+    population1 : numpy.ndarray
+        Population to filter, one chromosome per row.
+    population2 : numpy.ndarray
+        Reference population (e.g. all chromosomes simulated so far).
+
+    Returns
+    -------
+    numpy.ndarray
+        population1 without the rows that also appear in population2.
+    """
     pop_1 = copy.deepcopy(population1)
     a = {}
     for i in range(0,len(population2)):
@@ -299,6 +534,34 @@ def remove_duplicate_different_population(population1, population2):
 
 # to separate old and new chromosomes in the newly generated population
 def separate_new_old(f_new_population, f_old_population):
+    """Split a population into newly created and carried-over chromosomes.
+
+    A chromosome is "old" when it also appears in the previous population
+    (i.e. a parent that survived selection) and "new" otherwise (an
+    offspring).
+
+    Parameters
+    ----------
+    f_new_population : numpy.ndarray
+        Population selected for the next generation.
+    f_old_population : numpy.ndarray
+        Population of the previous generation.
+
+    Returns
+    -------
+    f_new_chroms : numpy.ndarray
+        Chromosomes that were not in the previous population.
+    f_old_chroms : numpy.ndarray
+        Chromosomes carried over from the previous population.
+    f_old_chroms_index : list of int
+        Row indices of the carried-over chromosomes in f_new_population.
+
+    Notes
+    -----
+    At least one chromosome must be carried over from the previous
+    population; otherwise f_old_chroms_index is never assigned and Python
+    raises an error.
+    """
     f_new_chroms = copy.deepcopy(f_new_population)
     f_old_chroms = copy.deepcopy(f_new_population)
     a = {}
@@ -315,6 +578,21 @@ def separate_new_old(f_new_population, f_old_population):
 
 # to remove chromosomes which have the same objective functions
 def remove_same_objectives_population(f_comb_population, f_dup_idx_obj):
+    """Delete chromosomes whose objective values duplicate another solution's.
+
+    Parameters
+    ----------
+    f_comb_population : numpy.ndarray
+        Combined parent and offspring population, one chromosome per row.
+    f_dup_idx_obj : list of int
+        Row indices to delete, as returned by remove_duplicate_list() for the
+        matching objective array.
+
+    Returns
+    -------
+    numpy.ndarray
+        The population without the listed rows.
+    """
     comb_pop = copy.deepcopy(f_comb_population)
     a = copy.deepcopy(f_dup_idx_obj)
     if a!=[]:
@@ -325,6 +603,35 @@ def remove_same_objectives_population(f_comb_population, f_dup_idx_obj):
 # to create offspring
 def create_offspring(f_p_population, f_chrom_len, f_pop_size,
                      f_sorted_fitness, f_p, f_simulated_population):
+    """Create a population of new, unique offspring.
+
+    Repeats tournament selection (fitter_parent), single-point crossover and
+    bit-flip mutation until f_pop_size offspring exist or 5000 attempts have
+    been made. Offspring that duplicate each other, or any chromosome
+    already simulated, are discarded.
+
+    Parameters
+    ----------
+    f_p_population : numpy.ndarray
+        Parent population, one chromosome per row.
+    f_chrom_len : int
+        Number of genes per chromosome.
+    f_pop_size : int
+        Target number of offspring.
+    f_sorted_fitness : numpy.ndarray
+        Parent indices ordered from fittest to least fit (fitness_sort()).
+    f_p : float
+        Mutation probability passed to mutation_random_bitflip().
+    f_simulated_population : numpy.ndarray
+        All chromosomes simulated so far (population repository).
+
+    Returns
+    -------
+    numpy.ndarray
+        Offspring population. It can hold fewer than f_pop_size rows if not
+        enough new chromosomes were found, or one more (children are added in
+        pairs); the main script trims it to f_pop_size.
+    """
     # to create an empty array for offspring
     offspring = np.empty((0,f_chrom_len)).astype(int)
     

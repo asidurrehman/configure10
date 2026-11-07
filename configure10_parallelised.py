@@ -71,7 +71,81 @@ from configure10_functions import (
     remove_duplicate_different_population, separate_new_old,
     remove_same_objectives_population, create_offspring)
 
+# hide Python warnings (e.g. deprecation messages from libraries) to keep the
+# progress messages readable
 warnings.filterwarnings("ignore")
+
+# =============================================================================
+# HOW THIS SCRIPT WORKS
+# =============================================================================
+# This is the parallelised version of configure10_standard.py. The algorithm
+# is the same; the difference is that every population is split into chunks
+# that several worker processes evaluate at the same time (processes_count in
+# config.yaml). This saves time when each evaluation is a slow flood
+# simulation. The stages below run in order; the same step numbers label the
+# section headers further down.
+#
+#   Step 1  Settings: read config.yaml and move into the output folder
+#   Step 2  USER INPUT: the number of BGI features and the cost of each one
+#   Step 3  Initial population (generation 0): random, unique chromosomes,
+#           evaluated in parallel (see HOW THE PARALLEL EVALUATION WORKS)
+#           and plotted (Gen_0.png)
+#   Step 4  Records that keep every generation for the CSV export
+#   Step 5  Generation loop, repeated `generations` times (config.yaml):
+#             5a  rank the parents (non-dominated sorting + crowding distance)
+#             5b  create offspring that have never been simulated before
+#                 (tournament selection, crossover and mutation)
+#             5c  evaluate the offspring in parallel
+#             5d  combine parents and offspring, drop duplicate (cost, risk)
+#                 pairs, re-rank and keep the best pop_size as new parents
+#             5e  plot the generation (Gen_<n>.png) and save
+#                 generation_data.csv
+#   Step 6  Results: the Pareto-optimal solutions of the final generation are
+#           plotted (Gen_<n>_optimal.png) and saved to optimised_data.csv and
+#           "BGI contribution to optimal solutions.csv"
+#
+# The cost and risk of a candidate solution are calculated in
+# cost_risk_objectives() just below; that is where your flood model goes. It
+# is the only part of this file that runs inside the worker processes.
+# Lines marked "USER INPUT" show the places you are expected to edit. The
+# NSGA-II building blocks are in configure10_functions.py.
+
+# -----------------------------------------------------------------------------
+# NAMING CONVENTIONS
+# -----------------------------------------------------------------------------
+#   chromosome    one candidate solution (a BGI layout): a row of chrom_len
+#                 genes, one gene per BGI feature; 1 = the feature is built,
+#                 0 = it is not
+#   population    2-D numpy array with one chromosome per row
+#   cost, risk    the two objectives of a chromosome; both are MINIMISED.
+#                 cost = sum of bgi_cost over the features that are built;
+#                 risk comes from the flood model (a random value from 0 to 99
+#                 in this demonstration)
+#   *_chrom_cost, *_chrom_risk   column arrays of shape (n, 1); row k belongs
+#                 to chromosome (row) k of the matching population
+#   *_chroms_objs (n, 2) array of objective pairs: column 0 = cost,
+#                 column 1 = risk
+#   front         a group of solutions of equal rank; front 0 holds the
+#                 non-dominated (Pareto-optimal) solutions
+#
+# Prefixes:
+#   i_     initial population (generation 0)
+#   p_     parents: the current population, which breeds the next one
+#   o_     offspring created in the current generation
+#          (the offspring chromosomes themselves are in `offspring`)
+#   comb_  parents and offspring combined (*_uniq: after removing duplicate
+#          (cost, risk) pairs)
+#   f_     fittest: the pop_size survivors that become the next parents
+#          (inside functions, f_ simply marks the function's own variables)
+#   gen_   records of all generations, exported to generation_data.csv
+#   opt_   optimal (Pareto front) solutions of the final generation
+#
+# Parallel-mode names:
+#   *_list   one item per worker process: chunks of a population, or
+#            copies of chrom_len / bgi_cost
+#   *_s      'simulated': arrays read back from the joined worker output
+#   output_list_i, output_list   list of the workers' results, one per chunk
+#   output_i     those results joined into one array (genes, cost, risk)
 
 
 '''----------------------------------------------------------------------------
@@ -115,6 +189,7 @@ def cost_risk_objectives(f_population, f_chrom_len, f_bgi_cost):
     
     # create empty numpy arrays to save cost and levels of risk for each
     # of the chromosomes or candidate solutions
+    # both are column arrays of shape (n, 1), one row per chromosome in this chunk
     f_chrom_cost = np.zeros(len(f_population))[:,np.newaxis]
     f_chrom_risk = np.zeros(len(f_population))[:,np.newaxis]
     
@@ -145,12 +220,36 @@ def cost_risk_objectives(f_population, f_chrom_len, f_bgi_cost):
         # for each candidate solution.
         # Please refer to the main article for further details.
         
+        # USER INPUT: replace the demonstration line below with your flood model.
+        # At this point:
+        #   f_population[pop]                    the chromosome being evaluated
+        #                                        (one 0/1 gene per BGI feature)
+        #   np.where(f_population[pop] == 1)[0]  row numbers of the BGI features to
+        #                                        include in this simulation
+        #   f_chrom_cost[pop]                    its cost (already calculated above)
+        # Typical steps:
+        #   1. write your model's input files with these BGI features in place
+        #   2. run the model (for example with subprocess.run)
+        #   3. read the results and reduce them to ONE risk value; smaller must mean
+        #      better, because the algorithm minimises risk
+        #   4. store it:  f_chrom_risk[pop] = risk_value
+        # Gene k must refer to the same BGI feature as row k of bgi_cost.
+        # PARALLEL MODE: several worker processes run this function at the same time,
+        # each on its own chunk of chromosomes. If your model writes files, give every
+        # simulation its own folder or file names, otherwise parallel runs will
+        # overwrite each other's files.
+
         # for demonstration, hypothetical risk is generated for each chromosome
         f_chrom_risk[pop] = np.random.randint(100)
     
         '''#################################################################'''        
 
         
+    # return the chromosomes together with their cost and risk as one array of
+    # shape (n, f_chrom_len + 2): columns 0 .. f_chrom_len-1 = genes, column
+    # f_chrom_len = cost, column f_chrom_len+1 = risk. Keeping the genes in the
+    # same row lets the main script match the results back to their chromosomes
+    # after the chunks from all workers have been joined.
     return np.concatenate((f_population, f_chrom_cost, f_chrom_risk), axis=1)
 
 
@@ -161,8 +260,20 @@ def cost_risk_objectives(f_population, f_chrom_len, f_bgi_cost):
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'''
 
+# =============================================================================
+# MAIN PROGRAM
+# =============================================================================
+# Everything below runs inside `if __name__ == '__main__':`. multiprocessing
+# needs this guard: on Windows and macOS every worker process starts by
+# importing this file, and the guard stops the workers from running the whole
+# optimisation again. The workers only run cost_risk_objectives().
 if __name__ == '__main__':
     
+    # =============================================================================
+    # Step 1: SETTINGS AND OUTPUT FOLDER
+    # =============================================================================
+    # record the start time of the run (kept for reference; it is not used
+    # further in this script)
     start_timestamp = pd.Timestamp.now()
     
     # read user settings (output folder and run parameters) from a YAML
@@ -190,11 +301,16 @@ if __name__ == '__main__':
         os.makedirs(run_path)
 
     # change to  the working directory
+    # all output files are written with plain file names, so they end up in this
+    # folder
     os.chdir(run_path)
     
     # show current working directory
     print("Current working directory: {0}".format(os.getcwd()))
 
+    # =============================================================================
+    # Step 2: USER INPUT - BGI FEATURES AND THEIR COSTS
+    # =============================================================================
     '''#####################################################################'''
     '''
     ╔═╗╦╦  ╦╔═╗  ╦ ╦╔═╗╦ ╦╦═╗  ╔╗ ╔═╗╦  ╔═╗╔═╗╔═╗╔╦╗  ╦ ╦╔═╗╦═╗╔═╗
@@ -206,6 +322,18 @@ if __name__ == '__main__':
     # a file. User should store BGI cost in a numpy array
     # bgi_cost = size of BGI feature x per unit size cost of BGI feature
 
+    # USER INPUT: describe your candidate BGI features here.
+    #   bgi_count  number of candidate BGI features (= genes per chromosome)
+    #   bgi_cost   numpy array of shape (bgi_count, 1); row k is the cost of
+    #              building BGI feature k (size of the feature x cost per unit
+    #              size). Row k must describe the same feature as gene k in your
+    #              model coupling in cost_risk_objectives().
+    # The demonstration uses 100 features with random costs between 0.1 and 3.0.
+    # For a real study, read the costs from a file instead, for example
+    # (illustrative file and column names):
+    #   bgi_cost = pd.read_csv("bgi_cost.csv")[["cost"]].to_numpy()
+    #   bgi_count = len(bgi_cost)
+
     # for demonstration, let's consider 100 BGI features
     bgi_count = 100
 
@@ -214,6 +342,9 @@ if __name__ == '__main__':
 
     '''#####################################################################'''
 
+    # =============================================================================
+    # Step 3: INITIAL POPULATION (generation 0)
+    # =============================================================================
     # to create chromosomes from BGI features
     
     # chromosome length represents the number of genes or bins. Each bin will
@@ -221,12 +352,16 @@ if __name__ == '__main__':
     chrom_len = copy.deepcopy(bgi_count)
 
     # population size (number of chromosomes)
+    # (set in config.yaml)
     pop_size = config["pop_size"]
     
     # to generate the initial population (randomly)
+    # (pop_size, chrom_len) array of 0/1 genes with no repeated rows; the last two
+    # rows are the extremes 'no BGI' and 'all BGI' (see initial_pop())
     i_population = unique_pop(pop_size,chrom_len)
      
     # number of parallel processes to run
+    # (set in config.yaml; for example the number of physical CPU cores)
     processes_count = config["processes_count"]
     
     # user can also decide the number of parallel processes based on the number  
@@ -234,6 +369,27 @@ if __name__ == '__main__':
     # import psutil 
     # processes_count = psutil.cpu_count(logical=False)
     
+    # HOW THE PARALLEL EVALUATION WORKS (used here and again in Step 5c)
+    #   (i)   The population is split into processes_count chunks of rows.
+    #         Integer division gives the basic chunk size and the remainder is
+    #         shared out one extra row at a time, e.g. 10 rows on 4 processes ->
+    #         3, 3, 2, 2. (With fewer rows than processes, some chunks are simply
+    #         empty.)
+    #   (ii)  np.cumsum turns the chunk sizes into start and end row numbers,
+    #         e.g. sizes [3, 3, 2, 2] -> starts [0, 3, 6, 8], ends [3, 6, 8, 10].
+    #   (iii) Every worker gets one chunk plus its own copy of chrom_len and
+    #         bgi_cost; pool.starmap calls cost_risk_objectives(chunk, chrom_len,
+    #         bgi_cost) once per chunk, with the chunks running in parallel.
+    #   (iv)  Each worker returns its chunk with two extra columns (cost, risk).
+    #         starmap returns the results in the same order as the chunks, and
+    #         np.concatenate stacks them back into one array, one row per
+    #         chromosome.
+    #   (v)   The columns are then split again into genes, cost and risk. Because
+    #         each row carries its own chromosome, cost and risk always stay
+    #         matched to the right layout.
+    # (The "Step-1" and "Step-2" comments below refer to (i)-(iii) here, not to
+    # the main steps of the script.)
+
     # To create population chunks, each chunk will be allocated to
     # a separate process
     chunk_size = pop_size // processes_count
@@ -254,28 +410,46 @@ if __name__ == '__main__':
     
     # we need to have four duplicates of bgi cost and chrom length
     # for four separate processes
+    # (in general, one copy per worker process, i.e. processes_count copies; these
+    # two lists are created once here and reused in every generation)
     bgi_cost_list = [bgi_cost for _ in range(processes_count)]
     chrom_len_list = [chrom_len for _ in range(processes_count)]
   
     # Combining all items or variables to pass to the function being
     # parallelised
+    # arg_zip yields one (chunk, chrom_len, bgi_cost) tuple per worker: the
+    # arguments of cost_risk_objectives()
     arg_zip = zip(i_population_list, chrom_len_list, bgi_cost_list)
     
     # generating a pool of four processes
+    # start processes_count worker processes
     pool = multiprocessing.Pool(processes = processes_count)
     
     # Running four parallel processes. For further details, please refer to
     # the documentation of multiprocessing and starmap.
+    # starmap calls cost_risk_objectives(*args) for every tuple in arg_zip,
+    # spreads the calls over the workers and waits until all have finished. The
+    # results come back as a list in the same order as the chunks.
     output_list_i = pool.starmap(cost_risk_objectives, arg_zip)
     
     # Concatenate arrays to get four different outputs together
     output_i = np.concatenate(output_list_i, axis=0)
     
+    # no more tasks for this pool: close it and wait for the workers to exit
     pool.close()
     pool.join() 
     
     # extracting information from the output and assigning it to relevant 
     # variables
+    # split the joined worker output back into its parts:
+    #   columns 0 .. chrom_len-1  genes (converted back to int, because joining
+    #                             them with the cost column made them floats)
+    #   column chrom_len          cost
+    #   column chrom_len+1        risk, converted to whole numbers by
+    #                             .astype(int): the demonstration risks are whole
+    #                             numbers already, but decimal risk values from a
+    #                             real model would be truncated here
+    # The _s ('simulated') arrays are in the same row order as i_population.
     i_population_s = output_i[:,0:chrom_len].astype(int)
     i_chrom_cost = output_i[:,chrom_len:chrom_len+1]
     i_chrom_risk = output_i[:,chrom_len+1:chrom_len+2].astype(int)
@@ -293,6 +467,10 @@ if __name__ == '__main__':
     plot_legend_series = 'Evolving solution'
     
     # x and y limits of plot axes
+    # these limits are reused for every plot of the run so that the generations
+    # can be compared: x goes up to the cost of building every BGI feature (the
+    # most expensive possible solution), y up to the largest risk in the initial
+    # population, each with a margin of 5
     plot_x_limit = [-5, int(sum(bgi_cost)[0])+5]
     plot_y_limit = [-5, max(i_chrom_risk)+5]
     
@@ -309,21 +487,32 @@ if __name__ == '__main__':
                      plot_y_limit, plot_x_axis_label, plot_y_axis_label, 
                      save_file )
     
+    # =============================================================================
+    # Step 4: RECORDS KEPT DURING THE RUN
+    # =============================================================================
     ## to store all created unique chromosomes (population repository)
+    # every chromosome evaluated so far; create_offspring() compares new children
+    # with it, so that no layout is ever simulated twice
     simulated_population = copy.deepcopy(i_population_s)
     
     # to store data created in each generation 
     # to keep record of generation number
+    # onetime_counter: (pop_size, 1) column holding one generation number.
+    # g_counter: all generation numbers so far; it grows by pop_size rows per
+    # generation and becomes the 'Generation' column of generation_data.csv
     onetime_counter = np.zeros(pop_size).astype(int)[:,np.newaxis]
     onetime_counter[:,0] = 0
     g_counter = copy.deepcopy(onetime_counter)
     
     # to save population and related objective functions
+    # gen_population / gen_chrom_cost / gen_chrom_risk stack the population of
+    # every generation (pop_size rows each) for generation_data.csv
     gen_population = copy.deepcopy(i_population_s)
     gen_chrom_cost = copy.deepcopy(i_chrom_cost)
     gen_chrom_risk = copy.deepcopy(i_chrom_risk)
     
     # labels to export data
+    # CSV column names: Generation, BGI_0 ... BGI_<chrom_len-1>, Cost, Risk
     exp_labels = [None]*(chrom_len+3)
     for i in range(len((exp_labels))):
         if i > 0 and i <chrom_len+1:
@@ -337,10 +526,14 @@ if __name__ == '__main__':
     
     # parent population, chrom_cost, and chrom_risk will change 
     # with each iteration
+    # the initial population is the first set of parents
     p_population = copy.deepcopy(i_population_s)
     p_chrom_cost = copy.deepcopy(i_chrom_cost)
     p_chrom_risk = copy.deepcopy(i_chrom_risk)
     
+    # =============================================================================
+    # Step 5: GENERATION LOOP (repeated `generations` times, see config.yaml)
+    # =============================================================================
     #-------------------------------------------------------------------------#
     """ Generation loop starts from here"""
     #-------------------------------------------------------------------------#
@@ -349,7 +542,9 @@ if __name__ == '__main__':
     
         print('\n''Gen.{0}: Generating offspring population'.format(generation))
         
+        # --- 5a. Rank the current parents ----------------------------------------
         # to make pairs of objectives
+        # p_chroms_objs: (pop_size, 2) array; column 0 = cost, column 1 = risk
         p_chroms_objs = np.concatenate((p_chrom_cost,p_chrom_risk ), axis=1)
         
         # to rank the individual chromosomes based on non-dominated sorting
@@ -359,16 +554,28 @@ if __name__ == '__main__':
         p_distance = calculate_crowding_distance(p_front,p_chroms_objs)
         
         ## to sort objectives based on front rank & crowding distance
+        # sorted_fitness: parent row numbers from the fittest to the least fit (best
+        # front first, then larger crowding distance); used by tournament selection
         sorted_fitness = np.array(fitness_sort(p_distance, pop_size))
         
+        # --- 5b. Create offspring ------------------------------------------------
+        # tournament selection, single-point crossover and bit-flip mutation; see
+        # create_offspring() in configure10_functions.py
         # to create offspring
         # p is the probability of mutation
         p = config["mutation_probability"]
         
+        # offspring: new chromosomes, one per row, none of which has been simulated
+        # before; usually pop_size or pop_size + 1 rows, fewer if new layouts were
+        # hard to find
         offspring = create_offspring(p_population, chrom_len, pop_size,
                                      sorted_fitness, p, simulated_population)
         
         # to check how many unique offspring found
+        #   more than pop_size (children come in pairs) -> keep the first pop_size
+        #   fewer than pop_size -> carry on with the offspring that were found
+        #   none at all -> stop the run: no unexplored layouts are left. The
+        #   generation_data.csv written so far is kept, but Step 6 is not run.
         if len(offspring) > pop_size:
             offspring = offspring[0:pop_size]
             print ('\n''Gen.{0}: {1} new offspring found'
@@ -392,11 +599,15 @@ if __name__ == '__main__':
                    .format(generation, len(offspring)))        
         
     
+        # --- 5c. Evaluate the offspring in parallel ------------------------------
+        # the same split / evaluate / join procedure as for the initial population
+        # (see HOW THE PARALLEL EVALUATION WORKS in Step 3), applied to the offspring
         # for offspring population
         print('\n''Gen.{0}: Simulating offspring population'.format(generation))
           
        
         # to create population chunks
+        # (here the number of rows is len(offspring), which can be less than pop_size)
         chunk_size = len(offspring) // processes_count
         remainder = len(offspring) % processes_count
         
@@ -409,8 +620,10 @@ if __name__ == '__main__':
                     for start, end in zip(np.cumsum([0] + chunk_sizes)[:-1],
                                               np.cumsum(chunk_sizes))]
         
+        # chrom_len_list and bgi_cost_list were created before the loop and are reused
         arg_zip = zip(o_population_list, chrom_len_list, bgi_cost_list)
         
+        # a new pool of workers is started for every evaluation and closed afterwards
         pool = multiprocessing.Pool(processes = processes_count)
         
         # Use starmap to apply func to each tuple in arg_zip
@@ -423,6 +636,9 @@ if __name__ == '__main__':
         pool.join() 
         
         # simulated initial population
+        # these are the simulated offspring: genes, cost and risk are split out of the
+        # joined worker output exactly as for the initial population (risk is again
+        # converted to whole numbers)
         o_population_s = output_i[:,0:chrom_len].astype(int)
         o_chrom_cost = output_i[:,chrom_len:chrom_len+1]
         o_chrom_risk = output_i[:,chrom_len+1:chrom_len+2].astype(int)
@@ -435,11 +651,18 @@ if __name__ == '__main__':
         # to make pairs of offspring objectives   
         o_chroms_objs = np.concatenate((o_chrom_cost,o_chrom_risk), axis=1)
         
+        # --- 5d. Select the next generation --------------------------------------
+        # Parents and offspring compete together (elitism: a good parent survives
+        # until something better replaces it). Every array below is stacked in the
+        # same order (parents first, then offspring), so rows stay aligned.
         ## to combine parents objectives & offspring objectives
         comb_chroms_objs = np.concatenate(
                                 (p_chroms_objs,o_chroms_objs), axis=0)
         
         # to check duplicates in combined objectives
+        # two different chromosomes can have exactly the same (cost, risk) pair; only
+        # the first is kept. dup_idx_obj lists the rows removed, so the same rows can
+        # be deleted from the chromosome, cost and risk arrays below.
         [comb_chroms_objs_uniq, dup_idx_obj] = remove_duplicate_list(
                                                 comb_chroms_objs)
             
@@ -464,6 +687,8 @@ if __name__ == '__main__':
         comb_population_fitness_sort = fitness_sort(comb_distance, comb_pop_size)
         
         ## to select the fittest objectives       
+        # select_fittest: row numbers (in the de-duplicated combined arrays) of the
+        # best pop_size solutions
         select_fittest = copy.deepcopy(comb_population_fitness_sort[0:pop_size])
         
         # to join cost objectives of parents and offspring population
@@ -476,12 +701,14 @@ if __name__ == '__main__':
                                                 dup_idx_obj, 0)
         
         # to extract the fittest objectives
+        # f_ = fittest: the survivors, which become the next parents
         f_chrom_cost = copy.deepcopy(comb_chrom_cost_uniq_obj[select_fittest])
         f_chrom_risk = copy.deepcopy(comb_chrom_risk_uniq_obj[select_fittest])
         
         # to extract the fittest chromosomes based on the fittest objectives
         f_population = copy.deepcopy(comb_population_uniq_objs[select_fittest])
         
+        # --- 5e. Report and store this generation --------------------------------
         # to plot cost vs risk
     
         # plot title
@@ -500,6 +727,11 @@ if __name__ == '__main__':
         old_population = copy.deepcopy(p_population)
     
         # to separate old and newly created chromosomes
+        # separate_new_old() is only used for the progress message below: how many
+        # survivors are parents kept from the previous generation and how many are
+        # new offspring.
+        # NOTE (known issue): separate_new_old() raises UnboundLocalError if no
+        # parent survives into the new population (rare; see its docstring).
         [new_chroms, old_chroms, old_chroms_index] = separate_new_old(
                                                 f_population,old_population)
         
@@ -510,11 +742,13 @@ if __name__ == '__main__':
         del p_population, p_chrom_cost, p_chrom_risk     
         
         # new population and objectives
+        # the survivors become the parents of the next generation
         p_population = copy.deepcopy(f_population)
         p_chrom_cost = copy.deepcopy(f_chrom_cost)
         p_chrom_risk = copy.deepcopy(f_chrom_risk)
         
         ## all data until the current generation
+        # append this generation's number and population to the records
         onetime_counter[:,0] = generation
         g_counter = np.concatenate((g_counter, onetime_counter), axis=0)
         
@@ -528,6 +762,10 @@ if __name__ == '__main__':
                                                p_chrom_risk), axis=0)
         
         # to export generation data
+        # generation_data.csv is rewritten after every generation, so the results so
+        # far are kept if the run stops early. Columns: SN (row number), Generation,
+        # BGI_0 ..., Cost, Risk. (The np.empty line is only a placeholder; it is
+        # replaced straight away by the concatenation.)
         generation_output = np.empty((0,pop_size+3))
         generation_output = np.concatenate((g_counter,
                                            gen_population, 
@@ -546,12 +784,19 @@ if __name__ == '__main__':
         #---------------------------------------------------------------------#
     
     
+    # =============================================================================
+    # Step 6: RESULTS - PARETO-OPTIMAL SOLUTIONS OF THE FINAL GENERATION
+    # =============================================================================
     # to get optimal chromosomes or solutions
     
     # to make pairs of offspring objectives   
+    # (cost, risk) pairs of the final population: after the loop, p_ holds the
+    # survivors of the last generation
     opt_chroms_objs = np.concatenate((p_chrom_cost,p_chrom_risk), axis=1)
     
     # to get non-dominated solutions (first front)
+    # [0] keeps front 0 only, i.e. the non-dominated (Pareto-optimal) solutions;
+    # opt_front is a list of row numbers in p_population
     opt_front = non_dominated_sorting(pop_size, 
                                    opt_chroms_objs)[0]
     
@@ -580,6 +825,8 @@ if __name__ == '__main__':
                      opt_save_file )
     
     # to export optimal data
+    # optimised_data.csv has the same columns as generation_data.csv, with one
+    # row per Pareto-optimal solution (the np.empty line is again a placeholder)
     opt_output = np.empty((0,len(opt_front)+3))
     
     # to get final generation number
@@ -601,6 +848,10 @@ if __name__ == '__main__':
     # to find the contribution of each BGI feature to optimal solutions
     
     # to get BGI contribution in Pareto optimal front
+    # one row per BGI feature: [BGI id, number of optimal solutions that include
+    # it, that number as a percentage of all optimal solutions]. The array holds
+    # integers, so the percentage is truncated to a whole number. A high value
+    # means the feature is part of many optimal layouts.
     bgi_contribution = np.zeros((chrom_len, 3), dtype=int)
     
     for i in range(chrom_len):

@@ -56,6 +56,17 @@ Configure10/
 └── LICENSE                       # Apache License 2.0
 ```
 
+## Understanding the code
+
+The code is commented for readers who are new to NSGA-II or to the framework. A suggested reading order:
+
+1. **`configure10_standard.py`**: start with the **HOW THIS SCRIPT WORKS** block near the top. It lists the stages of a run (Step 1 to Step 6), and the same step numbers label the sections further down. The **NAMING CONVENTIONS** block that follows explains the terms and variable prefixes, for example `i_` (initial population), `p_` (parents), `o_` (offspring), `comb_` (parents and offspring combined), `f_` (fittest survivors) and `opt_` (optimal solutions).
+2. **`cost_risk_objectives()`**, in the same script, shows how the cost and risk of a candidate solution are calculated and where your flood model goes.
+3. **`configure10_functions.py`** holds the NSGA-II building blocks: non-dominated sorting, crowding distance, tournament selection, crossover and mutation. Each function has a docstring and step-by-step comments.
+4. **`configure10_parallelised.py`** is the same algorithm. Its comments explain how each population is split into chunks for the worker processes and joined back together (**HOW THE PARALLEL EVALUATION WORKS**).
+
+Places you are expected to edit are marked `# USER INPUT:`. Comments starting with `# NOTE (known issue):` mark known limitations of the published code.
+
 ## Requirements
 
 - Python 3.10 or newer
